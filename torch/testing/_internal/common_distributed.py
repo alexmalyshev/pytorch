@@ -118,14 +118,17 @@ def requires_ddp_rank(device):
     return device in DDP_RANK_DEVICES
 
 
+def exit_if_lt_x_gpu(x):
+    if torch.cuda.device_count() < x:
+        sys.exit(TEST_SKIPS[f"multi-gpu-{x}"].exit_code)
+
+
 def skip_if_no_gpu(func):
     """Skips if the world size exceeds the number of GPUs, ensuring that if the
     test is run, each rank has its own GPU via ``torch.cuda.device(rank)``."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if not (TEST_CUDA or TEST_HPU or TEST_XPU):
-            sys.exit(TEST_SKIPS["no_cuda"].exit_code)
         world_size = int(os.environ["WORLD_SIZE"])
         if TEST_CUDA and torch.cuda.device_count() < world_size:
             sys.exit(TEST_SKIPS[f"multi-gpu-{world_size}"].exit_code)
@@ -136,7 +139,9 @@ def skip_if_no_gpu(func):
 
         return func(*args, **kwargs)
 
-    return wrapper
+    return unittest.skipUnless(
+        TEST_CUDA or TEST_HPU or TEST_XPU, TEST_SKIPS["no_cuda"].message
+    )(wrapper)
 
 
 # TODO (kwen2501): what is the purpose of this decorator?  Tests with this
@@ -172,19 +177,12 @@ def require_n_gpus_for_nccl_backend(n, backend):
 
 
 def import_transformers_or_skip():
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                from transformers import AutoModelForMaskedLM, BertConfig  # noqa: F401
+    try:
+        from transformers import AutoModelForMaskedLM, BertConfig  # noqa: F401
 
-                return func(*args, **kwargs)
-            except ImportError:
-                sys.exit(TEST_SKIPS["importerror"].exit_code)
-
-        return wrapper
-
-    return decorator
+        return unittest.skipIf(False)
+    except ImportError:
+        return unittest.skip(TEST_SKIPS["importerror"].message)
 
 
 def at_least_x_gpu(x):
@@ -374,14 +372,7 @@ def requires_multicast_support():
 def skip_if_rocm_multiprocess(func):
     """Skips a test for ROCm"""
     func.skip_if_rocm_multiprocess = True
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if not TEST_WITH_ROCM:
-            return func(*args, **kwargs)
-        sys.exit(TEST_SKIPS["skipIfRocm"].exit_code)
-
-    return wrapper
+    return unittest.skipUnless(TEST_WITH_ROCM, TEST_SKIPS["skipIfRocm"].message)(func)
 
 
 def skip_if_win32():
