@@ -85,7 +85,7 @@ template_rule(
     name = "include_dnnl_version_hash",
     src = "include/oneapi/dnnl/dnnl_version_hash.h.in",
     out = "include/oneapi/dnnl/dnnl_version_hash.h",
-    substitutions = {"@DNNL_VERSION_HASH@": "d863a861f3c3e811f3fb0e634463e63cad01de48",}
+    substitutions = {"@DNNL_VERSION_HASH@": "5545f4170185277820039ccc7a540bc802b5f5d9",}
 )
 
 cc_library(
@@ -110,6 +110,7 @@ cc_library(
         "src/common/*.hpp",
         "src/common/**/**/*.h",
         "src/common/ittnotify/jitprofiling.h",
+        "third_party/**/*.h",
     ], exclude=[
         "src/cpu/aarch64/**/*.hpp",
         "src/cpu/aarch64/**/*.h",
@@ -140,7 +141,7 @@ cc_library(
         "src/",
         "src/common/",
         "src/cpu/",
-        "src/cpu/x64/xbyak/",
+        "third_party/",
     ],
     visibility = ["//visibility:public"],
     linkopts = [
