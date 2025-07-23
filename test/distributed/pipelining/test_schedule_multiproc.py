@@ -45,7 +45,8 @@ logger = logging.getLogger(__name__)
 d_hid = 512
 batch_size = 256
 torch.manual_seed(0)
-device_type = torch.accelerator.current_accelerator()
+device = torch.accelerator.current_accelerator()
+device_type = device.type
 backend = dist.get_default_backend_for_device(device_type) if device is not None else "None"
 
 class ScheduleTest(MultiProcContinousTest):

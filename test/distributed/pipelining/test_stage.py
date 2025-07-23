@@ -34,7 +34,8 @@ d_hid = 512
 batch_size = 256
 chunks = 4
 
-device_type = torch.accelerator.current_accelerator()
+device = torch.accelerator.current_accelerator()
+device_type = device.type
 backend = dist.get_default_backend_for_device(device_type) if device is not None else "None"
 
 torch.manual_seed(0)
@@ -346,7 +347,6 @@ class StageNegativeTest(MultiProcessTestCase):
 
     def init_pg(self):
         store = dist.FileStore(self.file_name, self.world_size)
-        print(backend, flush=True)
         dist.init_process_group(
             backend=backend,
             store=store,
