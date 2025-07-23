@@ -34,8 +34,8 @@ d_hid = 512
 batch_size = 256
 chunks = 4
 
-device = torch.accelerator.current_accelerator()
-backend = dist.get_default_backend_for_device(device) if device is not None else "None"
+device_type = torch.accelerator.current_accelerator()
+backend = dist.get_default_backend_for_device(device_type) if device is not None else "None"
 
 torch.manual_seed(0)
 
