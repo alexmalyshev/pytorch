@@ -98,6 +98,7 @@ cc_library(
         "src/cpu/aarch64/**/*.cpp",
         "src/cpu/rv64/**/*.cpp",
         "src/cpu/sycl/**/*.cpp",
+        "src/cpu/ppc64/**/*.cpp",
     ]),
     hdrs = glob([
         "include/oneapi/dnnl/*.h",
@@ -117,6 +118,7 @@ cc_library(
         "src/cpu/rv64/**/*.hpp",
         "src/cpu/rv64/**/*.h",
         "src/cpu/sycl/**/*.hpp",
+        "src/cpu/ppc64/**/*.hpp",
     ]) + [
         "include/oneapi/dnnl/dnnl_config.h",
         "include/oneapi/dnnl/dnnl_version.h",
