@@ -13,7 +13,7 @@ from functorch import make_fx
 from torch._inductor.utils import run_and_get_code
 from torch.testing import FileCheck
 from torch.testing._internal.common_device_type import instantiate_device_type_tests
-from torch.testing._internal.common_distributed import exit_if_lt_x_gpu
+from torch.testing._internal.common_distributed import exit_if_lt_x_cuda_devs
 from torch.testing._internal.distributed.fake_pg import FakeStore
 from torch.testing._internal.inductor_utils import HAS_GPU
 
@@ -484,7 +484,7 @@ def with_comms(func=None):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if BACKEND == dist.Backend.NCCL:
-            exit_if_lt_x_gpu(self.world_size)
+            exit_if_lt_x_cuda_devs(self.world_size)
 
         kwargs["device"] = DEVICE
         self.pg = self.create_pg(device=DEVICE)

@@ -30,7 +30,7 @@ from torch.distributed.tensor.parallel import (
     SequenceParallel,
 )
 from torch.testing._internal.common_distributed import (
-    exit_if_lt_x_gpu,
+    exit_if_lt_x_cuda_devs,
     MultiProcessTestCase,
     MultiThreadedTestCase,
     run_subtests,
@@ -356,7 +356,7 @@ class DTensorTestBase(MultiProcessTestCase):
 
     def init_pg(self, eager_init) -> None:
         if "nccl" in self.backend:
-            exit_if_lt_x_gpu(self.world_size)
+            exit_if_lt_x_cuda_devs(self.world_size)
 
         if self.backend not in [
             "nccl",
