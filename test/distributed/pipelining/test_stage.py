@@ -34,10 +34,8 @@ d_hid = 512
 batch_size = 256
 chunks = 4
 
-device = torch.accelerator.current_accelerator()
-device_type = device.type
-backend = dist.get_default_backend_for_device(device_type) if device is not None else "None"
-
+device_type = acc.type if (acc := torch.accelerator.current_accelerator()) else "cpu"
+backend = dist.get_default_backend_for_device(device_type)
 torch.manual_seed(0)
 
 
@@ -79,7 +77,9 @@ class StageTest(MultiProcContinousTest):
         return torch.device(device_type, self.rank)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     @parametrize("ModelClass", [ExampleCode, MultiMLP])
     def test_tracer(self, ModelClass):
         mod = ModelClass(d_hid, self.world_size)
@@ -123,7 +123,9 @@ class StageTest(MultiProcContinousTest):
         assert all(k in old_keys for k in submod_keys)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     @parametrize("ModelClass", [ModelWithKwargs])
     def test_tracer_kwargs(self, ModelClass):
         mod = ModelClass(d_hid, self.world_size)
@@ -172,7 +174,9 @@ class StageTest(MultiProcContinousTest):
         assert all(k in old_keys for k in submod_keys)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     def test_manual(self):
         full_mod = MultiMLP(d_hid, n_layers=self.world_size)
         full_mod.to(self.device)
@@ -204,7 +208,9 @@ class StageTest(MultiProcContinousTest):
             torch.testing.assert_close(out, ref_out)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     def test_custom_dw_with_fb_schedule(self):
         """Tests that separate weight grad function 'dw_runner' gets run under a schedule that's only aware of F/B."""
         full_mod = MultiMLP(d_hid, n_layers=self.world_size)
@@ -264,7 +270,9 @@ class StageTest(MultiProcContinousTest):
             torch.testing.assert_close(out, ref_out)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     def test_output_chunks_memory_usage(self):
         """Test that output_chunks doesn't store memory for non-first stages."""
         full_mod = MultiMLP(d_hid, n_layers=self.world_size)
@@ -404,7 +412,9 @@ class StageNegativeTest(MultiProcessTestCase):
                 _run_step(x)
 
     @requires_accelerator_dist_backend(["nccl", "xccl"])
-    @skip_but_pass_in_sandcastle_if(not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs")
+    @skip_but_pass_in_sandcastle_if(
+        not TEST_MULTIGPU, f"{backend} test requires 2+ GPUs"
+    )
     def test_custom_dw_errors(self):
         """Tests expected errors are raised"""
         self.init_pg()
