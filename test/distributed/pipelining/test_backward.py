@@ -49,15 +49,11 @@ class StageBackwardTests(TestCase):
 
         torch.testing.assert_close(grad_inputs[0], ref_x.grad)
 
-        rtol, atol = None, None
-        if self.device_type == "xpu":
-            rtol, atol = torch.testing._comparison.default_tolerances(torch.float32)[0], 1e-4
-
         # Every rank checks gradients
         for name, p in mod.named_parameters():
             ref_p = ref_mod.get_parameter(name)
             try:
-                torch.testing.assert_close(p.grad, ref_p.grad, rtol=rtol, atol=atol)
+                torch.testing.assert_close(p.grad, ref_p.grad)
             except AssertionError:
                 print(f"Gradient test failed for {name}: {p.grad} vs {ref_p.grad}")
                 raise
@@ -128,15 +124,11 @@ class StageBackwardTests(TestCase):
         ref_loss = loss_fn(ref_out, ref_target)
         ref_loss.backward()
 
-        rtol, atol = None, None
-        if self.device_type == "xpu":
-            rtol, atol = torch.testing._comparison.default_tolerances(torch.float32)[0], 1e-4
-
         # Every rank checks gradients
         for name, p in mod.named_parameters():
             ref_p = ref_mod.get_parameter(name)
             try:
-                torch.testing.assert_close(p.grad, ref_p.grad, rtol=rtol, atol=atol)
+                torch.testing.assert_close(p.grad, ref_p.grad)
             except AssertionError:
                 print(f"Gradient test failed for {name}: {p.grad} vs {ref_p.grad}")
                 raise
@@ -182,22 +174,18 @@ class StageBackwardTests(TestCase):
             ref_loss = loss_fn(ref_out, ref_target)
             ref_loss.backward()
 
-        rtol, atol = None, None
-        if self.device_type == "xpu":
-            rtol, atol = torch.testing._comparison.default_tolerances(torch.float32)[0], 1e-4
-
         # Every rank checks gradients
         for name, p in mod.named_parameters():
             ref_p = ref_mod.get_parameter(name)
             try:
-                torch.testing.assert_close(p.grad, ref_p.grad, rtol=rtol, atol=atol)
+                torch.testing.assert_close(p.grad, ref_p.grad)
             except AssertionError:
                 print(f"Gradient test failed for {name}: {p.grad} vs {ref_p.grad}")
                 raise
 
 
 devices = ["cpu", "cuda", "hpu", "xpu"]
-instantiate_device_type_tests(StageBackwardTests, globals(), only_for=devices, allow_xpu=True)
+instantiate_device_type_tests(StageBackwardTests, globals(), only_for=devices)
 
 if __name__ == "__main__":
     run_tests()
