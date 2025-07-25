@@ -37,6 +37,7 @@ from dataclasses import dataclass, field as dc_field
 from typing import Any, Callable, cast, Optional, TYPE_CHECKING, Union
 
 import sympy
+from collections.abc import Sequence
 
 import torch._guards
 import torch._logging
@@ -56,6 +57,7 @@ from torch._guards import (
 )
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._utils_internal import signpost_event
+from torch.export.dynamic_shapes import _ConstraintTarget
 from torch.fx._lazy_graph_module import _make_graph_module  # type: ignore[attr-defined]
 from torch.fx.experimental._backward_state import BackwardState
 from torch.fx.experimental.symbolic_shapes import (
@@ -384,7 +386,7 @@ class OutputGraph(OutputGraphGuardsState):
         compiler_fn: Optional[CompilerFn],
         root_tx,
         export: bool,
-        export_constraints,
+        export_constraints: Sequence[_ConstraintTarget],
         frame_state,
         local_scope: Scope,
         global_scope: Scope,

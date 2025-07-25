@@ -369,7 +369,7 @@ class Guard:
     def set_export_info(
         self,
         guard_type: str,
-        guarded_class: Optional[type],
+        guarded_class: Optional[weakref.ReferenceType[Any]],
         code_list: list[str],
         obj_weakref: object,
     ) -> None:

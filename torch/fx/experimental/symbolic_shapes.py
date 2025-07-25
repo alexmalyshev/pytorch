@@ -5210,7 +5210,7 @@ class ShapeEnv:
 
     def produce_guards_verbose(
         self,
-        placeholders: Sequence[FakeTensor],
+        placeholders: Sequence[Union[FakeTensor, SymInt]],
         sources: Sequence[Source],
         source_ref: Callable[[Source], str] = lambda n: n.name(),
         *,
