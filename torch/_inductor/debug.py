@@ -716,7 +716,8 @@ def create_mapping_pre_post_grad_nodes(
         "postToPre": {},
     }
 
-    log.info("Creating node mappings for provenance tracking")
+    # comment out to avoid breaking log unit tests
+    # log.info("Creating node mappings for provenance tracking")
 
     if not isinstance(post_to_pre_grad_nodes_json, dict):
         log.error("Provenance tacking error: post_to_pre_grad_nodes_json is not a dict")
