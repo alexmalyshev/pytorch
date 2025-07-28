@@ -2,7 +2,7 @@
 
 #if defined(CPU_CAPABILITY_AVX512)
 #include <ATen/cpu/vec/vec512/vec512.h>
-#elif defined(CPU_CAPABILITY_SVE)
+#elif defined(__aarch64__)
 #include <ATen/cpu/vec/sve/vec_common_sve.h>
 #else
 #include <ATen/cpu/vec/vec128/vec128.h>

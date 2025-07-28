@@ -12,7 +12,8 @@
 #include <ATen/cpu/vec/sve/vec_double.h>
 #include <ATen/cpu/vec/sve/vec_float.h>
 #include <ATen/cpu/vec/sve/vec_int.h>
-#include <ATen/cpu/vec/sve/vec_qint.h>
+//SVE qint version is broken
+#include <ATen/cpu/vec/vec256/vec256_qint.h>
 #include <ATen/cpu/vec/sve/vec_bfloat16.h>
 
 namespace at::vec {
@@ -73,12 +74,6 @@ DEFINE_SVE_CAST(int64_t, s64, float, f32)
 DEFINE_SVE_CAST(int32_t, s32, float, f32)
 DEFINE_SVE_CAST(int16_t, s16, float, f32)
 DEFINE_SVE_CAST(float, f32, double, f64)
-
-#ifdef __ARM_FEATURE_BF16
-DEFINE_SVE_CAST(int64_t, s64, c10::BFloat16, bf16)
-DEFINE_SVE_CAST(int32_t, s32, c10::BFloat16, bf16)
-DEFINE_SVE_CAST(int16_t, s16, c10::BFloat16, bf16)
-#endif // __ARM_FEATURE_BF16
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GATHER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -183,9 +178,13 @@ std::pair<
   // group cols crossing lanes:
   //   return {a0, b0, a1, b1, a2, b2, a3, b3}
   //          {a4, b4, a5, b5, a6, b6, a7, b7}
-  return std::make_pair(
-      Vectorized<c10::BFloat16>(svzip1_bf16(a, b)),
-      Vectorized<c10::BFloat16>(svzip2_bf16(a, b)));
+  Vectorized<c10::BFloat16> c;
+  Vectorized<c10::BFloat16> d;
+  svbfloat16_t aReg = svreinterpret_bf16_u64(a.getSve());
+  svbfloat16_t bReg = svreinterpret_bf16_u64(b.getSve());
+  c.setSve(svreinterpret_u64_bf16(svzip1_bf16(aReg, bReg)));
+  d.setSve(svreinterpret_u64_bf16(svzip2_bf16(aReg, bReg)));
+  return std::make_pair(c, d);
 }
 #endif // __ARM_FEATURE_BF16
 
@@ -234,9 +233,13 @@ std::pair<
   // swap lanes:
   //   return {a0, a1, a2, a3, a4, a5, a6, a7}
   //          {b0, b1, b2, b3, b4, b5, b6, b7}
-  return std::make_pair(
-      Vectorized<c10::BFloat16>(svuzp1_bf16((svbfloat16_t)a, (svbfloat16_t)b)),
-      Vectorized<c10::BFloat16>(svuzp2_bf16((svbfloat16_t)a, (svbfloat16_t)b)));
+  Vectorized<c10::BFloat16> c;
+  Vectorized<c10::BFloat16> d;
+  svbfloat16_t aReg = svreinterpret_bf16_u64(a.getSve());
+  svbfloat16_t bReg = svreinterpret_bf16_u64(b.getSve());
+  c.setSve(svreinterpret_u64_bf16(svuzp1_bf16(aReg, bReg)));
+  d.setSve(svreinterpret_u64_bf16(svuzp2_bf16(aReg, bReg)));
+  return std::make_pair(c, d);
 }
 #endif // __ARM_FEATURE_BF16
 
