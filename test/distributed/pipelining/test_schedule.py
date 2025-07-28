@@ -8,7 +8,6 @@ import os
 from model_registry import MultiMLP
 
 import torch
-import torch.distributed as dist
 from torch.distributed.pipelining import (
     Schedule1F1B,
     ScheduleGPipe,
