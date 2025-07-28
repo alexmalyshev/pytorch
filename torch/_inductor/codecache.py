@@ -25,6 +25,7 @@ import textwrap
 import threading
 import warnings
 from bisect import bisect_right
+from concurrent.futures import wait
 from copy import copy
 from ctypes import c_void_p, CDLL, cdll
 from datetime import timedelta
@@ -107,6 +108,7 @@ from torch.compiler._cache import (
 from torch.export.pt2_archive._package_weights import TensorProperties, Weights
 from torch.export.pt2_archive.constants import CUSTOM_OBJ_FILENAME_PREFIX
 from torch.fx.experimental.symbolic_shapes import has_hint, hint_int, ShapeEnv
+from torch.utils._filelock import FileLock
 from torch.utils._ordered_set import OrderedSet
 
 from .output_code import CompiledFxGraph
@@ -2047,7 +2049,6 @@ ATTRIBUTE_NO_SANITIZE_ADDRESS\t\n"""
             # If we're packaging via CMake, we build the whole code at max optimization.
             wrapper_build_options = CppTorchDeviceOptions(
                 compile_only=True,
-                min_optimize=not config.aot_inductor.package_cpp_only,
                 **compile_command,
             )
             kernel_build_options = CppTorchDeviceOptions(
@@ -2063,7 +2064,6 @@ ATTRIBUTE_NO_SANITIZE_ADDRESS\t\n"""
                 wrapper_build_options.precompiled_header = _precompile_header(
                     header_file,
                     cpp_command,
-                    min_optimize=not config.aot_inductor.package_cpp_only,
                     **compile_command,
                 )
                 if cpp_prefix := _get_cpp_prefix_header(device_type):
@@ -2394,12 +2394,17 @@ def _precompile_header(
     with tempfile.TemporaryDirectory() as preprocessing_dir:
         preprocessing_header = Path(preprocessing_dir) / "header.hpp"
         preprocessing_header.write_text(f"#include <{header}>\n")
-        preprocessor = CppBuilder(
-            name=str(preprocessing_header)[:-4],  # strip off the .hpp extension
-            sources=str(preprocessing_header),
-            BuildOption=CppTorchDeviceOptions(**compile_command, preprocessing=True),
-        )
-        preprocessor.build()
+        # To hash the contents of the preprocessed header, we do not need to expend
+        # compute on optimization.
+        with config.patch("aot_inductor.compile_wrapper_opt_level", "O0"):
+            preprocessor = CppBuilder(
+                name=str(preprocessing_header)[:-4],  # strip off the .hpp extension
+                sources=str(preprocessing_header),
+                BuildOption=CppTorchDeviceOptions(
+                    **compile_command, preprocessing=True
+                ),
+            )
+            preprocessor.build()
 
         def _get_file_checksum(filename: str) -> str:
             """Reading the whole preprocessed header in for hashing is very expensive,
@@ -2505,7 +2510,7 @@ class CppCodeCache:
         cls,
         main_code: str,
         device_type: str = "cpu",
-        submit_fn: Any = None,
+        submit_fn: Optional[Callable[[Callable[..., Any]], Future[Any]]] = None,
         extra_flags: Sequence[str] = (),
         optimized_code: Optional[str] = None,
     ) -> Any:
@@ -2521,14 +2526,10 @@ class CppCodeCache:
 
         _set_gpu_runtime_env()  # cpp_extension consults the env
 
-        # Note the distinction between the two booleans.  We do minimal optimization if
-        # the optimized_code argument is present at all, since that's how the user of
-        # this function opts in, but we do compilation and linking in one step if the
-        # optimized_code argument is empty (as a micro-optimization).
+        # Do compilation and linking in one step if the optimized_code argument is empty
+        # (as a micro-optimization).
         main_build_option = CppTorchDeviceOptions(
-            compile_only=bool(optimized_code),
-            min_optimize=optimized_code is not None,
-            **compile_command,
+            compile_only=bool(optimized_code), **compile_command
         )
         optimized_build_option = CppTorchDeviceOptions(
             compile_only=True, **compile_command
@@ -2548,19 +2549,7 @@ class CppCodeCache:
         key, main_path = write(
             main_code, "main.cpp", extra=f"{optimized_code} {main_cmd_line}"
         )
-
-        # Don't bother writing if the argument is empty.
-        if optimized_code:
-            _, optimized_path = write(
-                optimized_code, "optimized.cpp", extra=optimized_cmd_line
-            )
-        else:
-            # Unused, but makes type checkers happy.
-            optimized_path = os.devnull
-
         if key not in cls.cache:
-            from torch.utils._filelock import FileLock
-
             lock_path = os.path.join(get_lock_dir(), key + ".lock")
             future: Optional[Future[Any]] = None
             lib = None
@@ -2571,7 +2560,6 @@ class CppCodeCache:
                     main_build_option.precompiled_header = _precompile_header(
                         header,
                         main_cmd_line,
-                        min_optimize=optimized_code is not None,
                         **compile_command,
                     )
 
@@ -2585,64 +2573,66 @@ class CppCodeCache:
                         **compile_command,
                     )
 
-            main_name, output_dir = get_name_and_dir_from_output_file_path(main_path)
-            main_builder = CppBuilder(
-                name=main_name,
-                sources=main_path,
-                BuildOption=main_build_option,
-                output_dir=output_dir,
+            main_name, main_output_dir = get_name_and_dir_from_output_file_path(
+                main_path
             )
-
+            builders = [
+                CppBuilder(
+                    name=main_name,
+                    sources=main_path,
+                    BuildOption=main_build_option,
+                    output_dir=main_output_dir,
+                )
+            ]
             if optimized_code:
+                _, optimized_path = write(
+                    optimized_code,
+                    "optimized.cpp",
+                    extra=optimized_cmd_line,
+                    specified_dir=main_output_dir,
+                )
                 optimized_name, _ = get_name_and_dir_from_output_file_path(
                     optimized_path
                 )
-                optimized_builder = CppBuilder(
-                    name=optimized_name,
-                    sources=optimized_path,
-                    BuildOption=optimized_build_option,
-                    output_dir=output_dir,
+                builders.append(
+                    CppBuilder(
+                        name=optimized_name,
+                        sources=optimized_path,
+                        BuildOption=optimized_build_option,
+                        output_dir=main_output_dir,
+                    )
                 )
 
-                linker = CppBuilder(
-                    name=main_name,
-                    sources=[
-                        main_builder.get_target_file_path(),
-                        optimized_builder.get_target_file_path(),
-                    ],
-                    BuildOption=CppTorchDeviceOptions(**compile_command),
-                    output_dir=output_dir,
+                # linking
+                builders.append(
+                    CppBuilder(
+                        name=main_name,
+                        sources=[b.get_target_file_path() for b in builders],
+                        BuildOption=CppTorchDeviceOptions(**compile_command),
+                        output_dir=main_output_dir,
+                    )
                 )
 
-                worker_fn = functools.partial(
-                    _worker_compile_cpp,
-                    lock_path,
-                    (main_builder, optimized_builder, linker),
-                )
-                binary_path = normalize_path_separator(linker.get_target_file_path())
-            else:
-                worker_fn = functools.partial(
-                    _worker_compile_cpp, lock_path, (main_builder,)
-                )
-                binary_path = normalize_path_separator(
-                    main_builder.get_target_file_path()
-                )
+            worker_fn = functools.partial(
+                _worker_compile_cpp, lock_path, builders, submit_fn
+            )
+
+            if submit_fn is not None:
+                future = worker_fn()
 
             def load_fn() -> Any:
                 nonlocal lib
                 if lib is None:
                     if future is not None:
                         future.result()
-                    result = worker_fn()
-                    assert result is None
-                    lib = cls._load_library(binary_path, key)
+                    else:
+                        worker_fn()
+                    lib = cls._load_library(
+                        normalize_path_separator(builders[-1].get_target_file_path()),
+                        key,
+                    )
                     assert lib is not None
                 return lib
-
-            if submit_fn is not None:
-                with FileLock(lock_path, timeout=LOCK_TIMEOUT):
-                    if not os.path.exists(binary_path):
-                        future = submit_fn(worker_fn)
 
             cls.cache[key] = load_fn
 
@@ -2656,13 +2646,33 @@ class CppCodeCache:
 def _worker_compile_cpp(
     lock_path: str,
     cpp_builders: Sequence[CppBuilder],
-) -> None:
-    from torch.utils._filelock import FileLock
+    submit_fn: Optional[Callable[[Callable[..., Any]], Future[Any]]] = None,
+) -> Optional[Future[Any]]:
+    assert len(cpp_builders) != 0
+
+    def run_builder(builder: CppBuilder) -> None:
+        if not os.path.exists(builder.get_target_file_path()):
+            builder.build()
 
     with FileLock(lock_path, timeout=LOCK_TIMEOUT):
+        if submit_fn:
+            object_futures: list[Future[Any]] = []
+            for builder in cpp_builders[:-1]:
+                object_futures.append(
+                    submit_fn(functools.partial(run_builder, builder))
+                )
+
+            def run_linker() -> None:
+                wait(object_futures)
+                return run_builder(cpp_builders[-1])
+
+            return submit_fn(run_linker)
+
         for builder in cpp_builders:
-            if not os.path.exists(builder.get_target_file_path()):
-                builder.build()
+            run_builder(builder)
+
+        # Unnecessary, but makes mypy happy
+        return None
 
 
 # Customized Python binding for cpp kernels
@@ -2796,7 +2806,7 @@ class CppPythonBindingsCodeCache(CppCodeCache):
         main_code: str,
         device_type: str = "cpu",
         num_outputs: int = -1,
-        submit_fn: Any = None,
+        submit_fn: Optional[Callable[[Callable[..., Any]], Future[Any]]] = None,
         extra_flags: Sequence[str] = (),
         kernel_code: Optional[str] = None,
     ) -> Any:
@@ -3139,7 +3149,10 @@ class HalideCodeCache(CppPythonBindingsCodeCache):
 
     @classmethod
     def generate_halide_async(
-        cls, meta: HalideMeta, source_code: str, submit_fn: Any = None
+        cls,
+        meta: HalideMeta,
+        source_code: str,
+        submit_fn: Optional[Callable[[Callable[..., Any]], Future[Any]]] = None,
     ) -> Callable[[], Any]:
         dirpath = Path(
             get_path(
@@ -3187,7 +3200,9 @@ class HalideCodeCache(CppPythonBindingsCodeCache):
             binding_types,
             cls._codegen_glue(meta, headerfile),
             extra_flags=(libfile, cls.build_standalone_runtime()),
-            submit_fn=jobs.append if need_compile else None,
+            # jobs.append doesn't match the signature for submit_fn, but in this case it
+            # still works, since there's only a single file to compile
+            submit_fn=jobs.append if need_compile else None,  # type: ignore[arg-type]
             device_type="cuda" if meta.is_cuda() else "cpu",
         )
 
