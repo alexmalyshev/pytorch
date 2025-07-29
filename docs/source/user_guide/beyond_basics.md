@@ -1,6 +1,6 @@
 # Beyound the Basics
 
-This section delves into PyTorch's advanced functionalities, empowering developers
+This section dives into PyTorch's advanced functionalities, empowering developers
 to optimize and extend their machine learning models. It explores `torch.export` for
 exporting models, `torch.compile` for performance enhancement, distributed training
 for scaling, and quantization for reducing model size and improving inference speed.
