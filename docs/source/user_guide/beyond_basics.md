@@ -1,5 +1,5 @@
 (user_guide_beyound_basics)=
-# Beyound the Basics
+# Beyond the Basics
 
 This section dives into PyTorch's advanced functionalities, empowering developers
 to optimize and extend their machine learning models. It explores `torch.export` for
