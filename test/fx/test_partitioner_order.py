@@ -33,17 +33,17 @@ class AddModule(torch.nn.Module):
 
 
 class TestPartitionerOrder(TestCase):
-    # partitoner test to check graph node order remains the same with the original graph after partitioning
+    # partitioner test to check graph node order remains the same with the original graph after partitioning
     def test_partitioner_graph_node_order(self):
         m = AddModule()
         traced_m = torch.fx.symbolic_trace(m)
         origin_node_order = [n.name for n in traced_m.graph.nodes]
-        partions = DummyPartitioner(traced_m).propose_partitions()
-        partion_nodes = [list(partition.nodes) for partition in partions]
-        partition_node_order = [n.name for n in partion_nodes[0]]
+        partitions = DummyPartitioner(traced_m).propose_partitions()
+        partition_nodes = [list(partition.nodes) for partition in partitions]
+        partition_node_order = [n.name for n in partition_nodes[0]]
         self.assertTrue(partition_node_order == origin_node_order)
 
-    # partitoner test to check graph node order remains the same during multiple runs
+    # partitioner test to check graph node order remains the same during multiple runs
     def test_partitioner_multiple_runs_order(self):
         m = AddModule()
         traced_m = torch.fx.symbolic_trace(m)
