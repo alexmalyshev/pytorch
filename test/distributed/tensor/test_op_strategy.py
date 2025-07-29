@@ -607,5 +607,29 @@ class DistTensorReplicateStrategyRegistrationTest(DTensorTestBase):
             self.assertEqual(output_dt.placements, [Replicate(), Replicate()])
 
 
+class TestStrategyHashing(DTensorTestBase):
+    @with_comms
+    def test_call_with_different_nontensor_args(self):
+        mesh = self.build_device_mesh()
+        global_tensor = torch.tensor(
+            [
+                [29.0, 45.0, 3.0, 61.0],
+                [25.0, 6.0, 21.0, 0.0],
+                [1.0, 63.0, 49.0, 38.0],
+                [48.0, 9.0, 55.0, 18.0],
+            ]
+        )
+        shard_spec = [Shard(1)]
+        sharded_dtensor = distribute_tensor(global_tensor, mesh, shard_spec)
+        with op_strategy_context(torch.ops.aten.sort.default, replicate_op_strategy):
+            # intentionally do not supply `schema_info=RuntimeSchemaInfo(1)`
+            torch.sort(sharded_dtensor, dim=0)  # sort each column
+            out1, _ = torch.sort(sharded_dtensor, dim=1)  # sort each row
+            # clear the cache
+            DTensor._op_dispatcher.sharding_propagator.propagate_op_sharding.cache.cache_clear()
+            out2, _ = torch.sort(sharded_dtensor, dim=1)
+        self.assertEqual(out1.full_tensor(), out2.full_tensor())
+
+
 if __name__ == "__main__":
     run_tests()
