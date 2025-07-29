@@ -31,7 +31,8 @@ print(y)
 print(x.grad)
 ```
 
-The example above shows tensor creation, computation, and automatic gradient calculation - core features that enable neural network training through backpropagation. The code above:
+The example above shows tensor creation, computation, and automatic gradient calculation
+- core features that enable neural network training through backpropagation. The code above:
 
 1. Imports `torch`
 2. Creates a tensor with gradient tracking enabled
@@ -56,11 +57,13 @@ PyTorch's autograd engine automatically computes the gradients needed for neural
 
 For a quick tutorial on PyTorch, see the [Learn the Basics tutorial](https://pytorch.org/tutorials/beginner/basics/intro.html).
 
-PyTorch can do so much more beyound the basic alarithmetic operations. It supports complex neural network architectures through
-its {mod}`torch.nn` module, provides efficient data loading utilities with {mod}
+PyTorch can do so much more beyound the basic alarithmetic operations. It supports complex neural
+network architectures through its {mod}`torch.nn` module, provides efficient data loading utilities with {mod}
 `torch.utils.data`, and offers a suite of optimization algorithms in {mod}`torch.
 optim`. PyTorch also facilitates distributed training across multiple GPUs and
-nodes, making it suitable for large-scale machine learning tasks. For performance optimization, PyTorch provides {func}`torch.compile`, which allows for compiling PyTorch models to improve execution speed and efficiency, and {func}`torch.export`, which enables exporting models for deployment in various environments.
+nodes, making it suitable for large-scale machine learning tasks. For performance optimization,
+PyTorch provides {func}`torch.compile`, which allows for compiling PyTorch models to improve execution
+speed and efficiency, and {func}`torch.export`, which enables exporting models for deployment in various environments.
 compiling PyTorch models to improve execution speed and efficiency.
 
 ## Optimizing with `torch.compile`
