@@ -1200,7 +1200,6 @@ def aot_dispatch_subclass(
         if use_trace_joint:
             # See Note: [Computing Subclass Metadata about grad_inputs]
             # We also stash subclass info on our grad_inputs, if we're tracing the joint.
-            nonlocal subclass_meta
             assert isinstance(wrapped_outs, tuple) and len(wrapped_outs) == 2, (
                 wrapped_outs,
                 wrapped_outs_descs,
